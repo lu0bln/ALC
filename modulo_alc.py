@@ -86,3 +86,41 @@ def normaMatMC(A,q,p,Np):
             x_max = ys
             max_norma = y_norma
     return x_max, max_norma
+
+def normaExacta(A,p=[1,'inf']):
+    A = np.array(A)
+    max_list = []
+    if p!= 1 or p!= 'inf':
+        return None
+    elif p == 'inf':    #Si me piden la norma inf sumo los valors abs de cada vector vi y los voy agregando a una lista para luego obtener el max de ellos
+        for i in range(A.shape[0]):
+            max.append(sumatoria_fila(A[i]))
+    elif p == 1:        #Si me piden la norma 1 hago lo mismo que antes pero a la matriz traspuesta, asi es mas facil sumar las columnas como si fueran filas.
+        A = A.T
+        for i in range(A.shape[0]):
+            max.append(sumatoria_fila(A[i]))
+    max = max(max_list)
+    return max
+
+"Devuelve el numero de condicion de A usando la norma inducida p"
+def condMC(A,p):
+    A = np.array(A)
+    A_ = np.linalg.solve(A,np.eye(A.shape[0]))
+    k = normaMatMC(A,p,p,1000)[0] * normaMatMC(A_,p,p,1000)[0] # Np = 1000 Que valor deberia tener? Aleatorio?
+    return k
+
+"Que devuelve el numero de condicion de A a partir de la formula de la ecuacion (1) usando la norma p."
+def condExacto(A, p) :
+    A = np.array(A)
+    A_ = np.linalg.solve(A,np.eye(A.shape[0]))
+    k = normaExacta(A,p) * normaExacta(A_,p)
+    return k
+
+## Defino funcion para sumar filas (reutilizo)
+def sumatoria_fila(x):
+    res = 0
+    for i in range(len(x)):
+        res += abs(x[i])
+    return res
+
+"------------LABO O4-----------FACTORIZACION LU--------------"
