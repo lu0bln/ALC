@@ -75,6 +75,7 @@ def abs_vector(x):
     return np.array(y)
 
 def norma(x,p):
+    x = np.array(x)
     res = 0
     if p == 'inf':
         return max(abs_vector(x))
@@ -88,35 +89,27 @@ def normaliza(X,p):
     for i in range(len(X)):
         Y.append(X[i] * 1/norma(X[i],p))
     return Y
-'''
-def normaliza(matriz,n):
-    Y = []
-    for i in range(0,len(matriz)): # quiero que itere sobre filas
-        fila_n = []
-        norma_vector = norma(matriz[i],n)
-        for j in range(0,len(matriz[0])):
-            fila_n.append(matriz[i][j] * 1/(norma_vector))
-        Y.append(fila_n)
-    return np.array(Y)
-'''
+
 def normaMatMC(A,q,p,Np):
+    A = np.array(A)
     x_max = 0
     max_norma = 0
     for _ in range(Np):
         xs = np.random.randn(A.shape[1]) #Genera vectores aleatorios de tamano n 
-        xs = normaliza(xs,p)    #Normalizo xs
-        ys = lib.calcularAx(A,xs)   # Hago A*xs
+        xs = xs / norma(xs,p)  #Normalizo xs
+        ys = A@xs.T   # Hago A*xs <------------- ARREGLAR FUNCIONES DE librerias.py calcularAx() por @ y traspuesta() por .T
         y_norma = norma(ys,q)   #Calculo la norma de A*xs en q
         if y_norma > max_norma: #Me fijo si la nueva norma es mayor al maximo actual y lo guardo
             x_max = ys
             max_norma = y_norma
-    return x_max, max_norma
+    return max_norma,x_max
+#print(normaMatMC(A=np.eye(2),q=2,p=1,Np=100000)[0])
 
 def normaExacta(A,p=[1,'inf']):
     e = [1,'inf']
     A = np.array(A)
     normas = []
-    if p != e:
+    if p != e and p not in e: #Agrego que si p no esta en e (pues sino falla al ser 1 o inf)
         return None
     for norma in e:
         maximos=[]
@@ -124,7 +117,6 @@ def normaExacta(A,p=[1,'inf']):
             for i in range(A.shape[0]):
                 maximos.append(sumatoria_fila(A[i]))
             normas.append(max(maximos))
-            
         if norma == 1:        #Si me piden la norma 1 hago lo mismo que antes pero a la matriz traspuesta, asi es mas facil sumar las columnas como si fueran filas.
             At = A.T
             for i in range(At.shape[0]):
@@ -132,12 +124,12 @@ def normaExacta(A,p=[1,'inf']):
             normas.append(max(maximos))
     return normas
 
-print((normaExacta(np.array([[1,-2],[-3,-4]]))))
+#print((normaExacta(np.array([[1,-2],[-3,-4]]))))
 
 "Devuelve el numero de condicion de A usando la norma inducida p"
 def condMC(A,p):
     A = np.array(A)
-    A_ = np.linalg.solve(A,np.eye(A.shape[0]))
+    A_ = np.linalg.solve(A,np.eye(A.shape[0])) # Se puede usar el np.linalg.solve? Es para calcular la inversa...
     k = normaMatMC(A,p,p,1000)[0] * normaMatMC(A_,p,p,1000)[0] # Np = 1000 Que valor deberia tener? Aleatorio?
     return k
 
@@ -145,8 +137,12 @@ def condMC(A,p):
 def condExacta(A, p) :
     A = np.array(A)
     A_ = np.linalg.solve(A,np.eye(A.shape[0]))
-    k = normaExacta(A,p) * normaExacta(A_,p)
+    if p == 1:
+        k = normaExacta(A,p)[0] * normaExacta(A_,p)[0]
+    elif p == 'inf':
+        k = normaExacta(A,p)[1] * normaExacta(A_,p)[1]
     return k
 
 
 "------------LABO O4-----------FACTORIZACION LU--------------"
+
