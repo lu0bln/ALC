@@ -146,3 +146,39 @@ def condExacta(A, p) :
 
 "------------LABO O4-----------FACTORIZACION LU--------------"
 
+def calculaLU(A):
+    if A is None:
+        return None,None,0
+    
+    cant_op = 0
+    m=A.shape[0]
+    n=A.shape[1]
+    Ac = A.copy()
+    
+    if m!=n:
+        print('Matriz no cuadrada')
+        return None,None,0
+    ## desde aqui -- CODIGO A COMPLETAR
+    for i in range(n):
+        fila_i = Ac[i][i:n] # guardo la primera fila (la fila i que solo es usada como "pivote", no es cambiada solo se usa para calcular)
+        for j in range(i+1,m):
+            fila_j = Ac[j][i:n]
+            if fila_i[0] == 0:
+                print("No se puede hacer descomposicion LU pivote nulo")
+                return None,None,0  # Si fui triangulando y tuve nops>0, pero justo luego me topo con un pivote nulo -> nops == 0 ? (segun el test es asi)
+            elif fila_j[0] == 0:
+                continue
+            pivote = fila_j[0] / fila_i[0]
+            cant_op+=1
+            Ac[j][i:n] = fila_j - (pivote)*fila_i
+            cant_op+= 2*len(fila_j)-2
+            fila_j[0] = pivote
+
+    L = lib.triangInf(Ac) + np.eye(A.shape[0],A.shape[1])
+    U = lib.triangSup(Ac) 
+    ## hasta aqui, calculando L, U y la cantidad de operaciones sobre la matriz Ac
+    return L, U, cant_op
+
+def res_tri(L,b,inferior = True):
+    x = []
+    return x
