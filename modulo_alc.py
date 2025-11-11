@@ -179,6 +179,36 @@ def calculaLU(A):
     ## hasta aqui, calculando L, U y la cantidad de operaciones sobre la matriz Ac
     return L, U, cant_op
 
+def esTriangSup(L):
+    res = True
+    for i in range(0,L.shape[0]):
+        for j in range(0,L.shape[1]):
+            if (i < j and L[i][j] == 0):
+                res = False
+    return res
+def darVueltaVector(x):
+    y = []
+    for i in range(len(x)-1,-1,-1):
+        y.append(x[i])
+    return np.array(y)
+
+#IDEA cambiar x por array de tamanño = filas(L)
 def res_tri(L,b,inferior = True):
     x = []
-    return x
+    if esTriangSup(L):
+        for i in range(L.shape[0]-1,-1,-1):
+            x_i = b[i]
+            for j in range(0,len(x)):
+                x_i -= L[i,j]*x[j]
+            x.append(x_i*1/L[i,i])
+        return darVueltaVector(x)
+    if inferior == False:
+        L = lib.traspuesta(L)
+    for i in range(0,L.shape[0]):
+        x_i = b[i]
+        for j in range(0,len(x)):
+            x_i -= L[i,j]*x[j]
+        x.append(x_i*1/L[i,i])
+    return np.array(x)
+
+ 
