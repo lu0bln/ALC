@@ -53,14 +53,22 @@ matriz_test = np.array([[-10 ,2 ,3 ,4] ,[0 ,7 ,2 ,3] ,[2 ,3 ,12 ,5] ,[0 ,0 ,1 ,2
 vector_columna = np.array([[1],[2],[3],[4],[5]])
 vector_fila = np.array([[1,2,3]])
 
-def matriz_ceros(filas,colummnas):
-    M = []
-    for i in range(0,filas):
-        M.append([0])
-        for j in range(0,colummnas-1):
-            M[i].append(0)
-    return np.array(M)
+def matriz_ceros(filas, cols): # <--- CAMBIO: Aceptar filas y cols
+    res = []
+    for _ in range(filas):
+        vec_zeros = []
+        for _ in range(cols):
+            vec_zeros.append(0.0) # <-- CAMBIO: Usar 0.0 (float)
+        res.append(vec_zeros)
+    return np.array(res)
 #print(f"Matriz de ceros de n filas y m columnas:\n{matriz_ceros(5,3)}")
+
+# Hago la matriz identidad
+def matriz_identidad(n:int):
+    res = [[0]*n for _ in range(n)]
+    for i in range(n):
+        res[i][i]= 1.0
+    return np.array(res)
 
 def filas(matriz) -> int:
     if (np.array(matriz).size == 0):
@@ -194,10 +202,12 @@ def esSimetrica(matriz,atol=1e-8):
 # arreglar calcularAx para que acepte vectores fila tambn
 def calcularAx(matriz,vector):
     B = []
+    if vector.shape[0] == 1:
+        vector = traspuesta(vector)
     for i in range(0,filas(matriz)):
         v_n = 0
         for j in range(0,columnas(matriz)):
-            v_n += matriz[i][j]*vector[j][0]
+            v_n += matriz[i][j]*vector[j]
         B.append([v_n])
     return np.array(B)
 
