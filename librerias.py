@@ -95,10 +95,11 @@ def esCuadrada(matriz):
 
 #print(f"La matriz:\n{matriz_test}\nes cuadrada?\n{esCuadrada(matriz_test)}")
 
+# Triangular superior de la matriz A, con ceros fuera de la diagonal
 ## EJERCICIO 2
 def triangSup(matriz):
-    f = filas(matriz)
-    c = columnas(matriz)
+    f = matriz.shape[0]
+    c = matriz.shape[1]
     if (c < 2 and f > 1):
         return matriz
     U = []
@@ -107,7 +108,7 @@ def triangSup(matriz):
         U.append(matriz[i].copy()) 
     for i in range(0,f):
         for j in range(0,c):
-            if (i >= j):
+            if (i > j):
                 U[i][j] = 0
     return np.array(U)
   
@@ -115,8 +116,8 @@ def triangSup(matriz):
 
 ## EJERCICIO 3
 def triangInf(matriz):
-    f = filas(matriz)
-    c = columnas(matriz)
+    f = matriz.shape[0]
+    c = matriz.shape[1]
     if (c < 2 and f > 1):
         return matriz
     L = []
@@ -162,21 +163,17 @@ def traza(matriz):
 
 ## EJERCICIO 6
 def traspuesta(matriz):
-    T = []
-    f = filas(matriz)
-    c = columnas(matriz)
-    for i in range(0,f):
-        for j in range(0,c):
-            if (len(T) < c):
-                T.append([matriz[i][j].copy()])
-            else:
-                T[j].append(matriz[i][j].copy())
+    matriz = np.array(matriz)
+    T = np.zeros((matriz.shape[1],matriz.shape[0]))
+    for i in range(0,matriz.shape[0]):
+        for j in range(0,matriz.shape[1]):
+                T[j][i] = matriz[i][j]
     return np.array(T)
 
 #print(f"Traspuesta:\n{traspuesta(matriz_test)}\nY esta es la original:\n{matriz_test}")
 
 ## EJERCICIO 7 (Solo valida para matrices cuadradas!!)
-def esSimetrica(matriz):
+def esSimetrica(matriz,atol=1e-8):
     res = True
     A_t = traspuesta(matriz)
     if (not esCuadrada(matriz)):
@@ -184,7 +181,8 @@ def esSimetrica(matriz):
     else:
         for i in range(0,filas(matriz)):
             for j in range(0,columnas(matriz)):
-                if(A_t[i][j] != matriz[i][j]):
+                #Sin tol -> if(A_t[i][j] != matriz[i][j]):
+                if(abs(A_t[i][j]-matriz[i][j])>atol):
                     res = False
     return res
 
@@ -193,6 +191,7 @@ def esSimetrica(matriz):
 ## EJERCICIO 8 (MULTIPLICACION VECTORIAL MATRIZ . VECTOR )
 # Recibo matriz de tamano nxm y un vector x de tamano m(mas especificamente el vector columna); calcularAx devuelve vector b de tamano n (1 columna de n filas)
 #filaxcolumna
+# arreglar calcularAx para que acepte vectores fila tambn
 def calcularAx(matriz,vector):
     B = []
     for i in range(0,filas(matriz)):
@@ -201,7 +200,6 @@ def calcularAx(matriz,vector):
             v_n += matriz[i][j]*vector[j][0]
         B.append([v_n])
     return np.array(B)
-
 
 #print(f"La multiplicacion vectorial de la matriz\n{matriz_test}\npor el vector columna\n{vector_columna}\nes:\n{calcularAx(matriz_test,vector_columna)}\nY la original sigue como antes:\n{matriz_test}")
 
