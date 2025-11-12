@@ -183,32 +183,63 @@ def esTriangSup(L):
     res = True
     for i in range(0,L.shape[0]):
         for j in range(0,L.shape[1]):
-            if (i < j and L[i][j] == 0):
+            if (i > j and L[i][j] != 0):
                 res = False
     return res
-def darVueltaVector(x):
-    y = []
-    for i in range(len(x)-1,-1,-1):
-        y.append(x[i])
-    return np.array(y)
 
-#IDEA cambiar x por array de tamanño = filas(L)
+
 def res_tri(L,b,inferior = True):
-    x = []
-    if esTriangSup(L):
-        for i in range(L.shape[0]-1,-1,-1):
+    n = L.shape[0]
+    x = np.zeros(n)
+    if esTriangSup(L):  # Por los tests, si me dan inferior = False no basta, tengo que verificar si es o no triangSup pues cambia todo
+        for i in range(n-1,-1,-1):
             x_i = b[i]
-            for j in range(0,len(x)):
+            for j in range(i+1,n):  #Cambie los indices pues no depende del tamano de x, es mejor asi
                 x_i -= L[i,j]*x[j]
-            x.append(x_i*1/L[i,i])
-        return darVueltaVector(x)
-    if inferior == False:
+            x[i] = (x_i*1/L[i,i])
+        return np.array(x)
+    if inferior == False:   # Por los test, si me dan inferior = False pero es triangInf -> lo resuelvo normal,
         L = lib.traspuesta(L)
-    for i in range(0,L.shape[0]):
+    for i in range(0,n):
         x_i = b[i]
-        for j in range(0,len(x)):
+        for j in range(i):      #Cambie los indices pues no depende del tamano de x, es mejor asi
             x_i -= L[i,j]*x[j]
-        x.append(x_i*1/L[i,i])
+        x[i] = (x_i*1/L[i,i])
     return np.array(x)
 
- 
+def inversa(A):
+    L, U, nops = calculaLU(A)
+    n = A.shape[0] 
+# Teniendo L y U sabemos que det(A) = det(L).det(U) donde L es triang inf con 1s en la diagonal y U triang sup -> det(L) = 1 y det(U) = U11...Unn
+    for i in range(A.shape[0]): 
+        if U[i,i] == 0: # -> Si algun elem de la diag(U) == 0 -> det(U) == 0 y A no es inversible  
+            print("La matriz no es inversible")
+            return None
+# Si A es inversible -> Creamos una matriz identidad (que sera nuestra x_i en el procedimiento)    
+    matriz_id = np.eye(n,n)
+# Tambien para ir armando la A_inv cada sol x_i sera guardada como columna de A_i 
+    A_inv = np.zeros((n,n))
+    for i in range(n):
+        y = res_tri(L,matriz_id[i],inferior=True)
+        x = res_tri(U,y,inferior=False)
+        A_inv[:,i] = x # Asigno a x como columna_i de A_inv
+    return A_inv
+
+def calculaLDV(A):
+    L,U,nops = calculaLU(A)
+# Sabemos que A = LDV con L triang inf,D diagonal, V triang sup -> V_t.D = U_t
+    V,D,cops = calculaLU(lib.traspuesta(U))
+    return L,D,lib.traspuesta(V)
+
+def esSDP(A, atol=1e-8):
+    if not lib.esSimetrica(A,atol):
+        print("La matriz no es SDP pues no es simetrica")
+        return None
+    res = True
+    L,D,V = calculaLDV(A)
+    for i in range(D.shape[0]):
+        if D[i,i] <= 0:
+            res = False
+    return res
+
+'----------LABO 05------------'
