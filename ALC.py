@@ -1,4 +1,5 @@
 import numpy as np
+
 #%% -----------LABO 00 ---------- LIBRERIAS
 def matriz_ceros(filas, cols): # <--- CAMBIO: Aceptar filas y cols
     res = []
@@ -390,7 +391,7 @@ def inversa(A):
     L, U, nops = calculaLU(A)
     n = A.shape[0] 
 # Teniendo L y U sabemos que det(A) = det(L).det(U) donde L es triang inf con 1s en la diagonal y U triang sup -> det(L) = 1 y det(U) = U11...Unn
-    for i in range(A.shape[0]): 
+    for i in range(n): 
         if U[i,i] == 0: # -> Si algun elem de la diag(U) == 0 -> det(U) == 0 y A no es inversible  
             print("La matriz no es inversible")
             return None
@@ -770,8 +771,8 @@ def cargarDatos(carpeta):
 
     Y_v = np.array(y).T
 
-    data_t = np.concatenate((cats_t,dogs_t))
-    data_v = np.concatenate((cats_v,dogs_v))
+    data_t = np.concatenate((cats_t,dogs_t),axis=1)
+    data_v = np.concatenate((cats_v,dogs_v),axis=1)
 
     return data_t, Y_t, data_v, Y_v
 
@@ -798,6 +799,7 @@ def rango(X):
         if not esColumnaNula(columna):
             n+=1
     return n
+
 def calculaCholesky(A):
     if not esSDP(A,atol=1e-10):
         return None
@@ -810,15 +812,50 @@ def calculaCholesky(A):
 def pinvEcuacionesNormales(X,L,Y):
     n,p = X.shape
     m,q = Y.shape
-    r = rango(X)
-
+    r = p
+    X_t = traspuesta(X)
+    W = []
     #-- Caso a) rango(X) = p ^ n>p -> X_ = (X_t.X)^-1.X_t donde resuelvo (X_t.X)U=X_t aplicando cCholesky a X_t.X
     if r == p and n>p:
-
+    #-- Para hallar X_ -> resolvemos A.U = X_t aplicando cholesky a A -> L.L_t.U=X_t
+        A = multiplicar_matrices(X_t,X)
+        L = calculaCholesky(A) # triang inf
+        L_t = traspuesta(L) # triang sup
+    #-- Resolvemos L.y= X_t con L_t.U= y (y matriz de L_t.shape[0] y U.shape[1])
+        U = matriz_ceros(n,n) #revisar dimensiones
+        for i in range(n):
+            y = res_tri(L,X[i],inferior=True) # Uso las filas de X pues son las columnas de X_t
+            x = res_tri(L_t,traspuesta(y),inferior=False)
+            U[:,i] = x # Asigno a x como columna_i de U
+        W = multiplicar_matrices(Y,U)
     #-- Caso b) rango(X) = n ^ n<p -> X_ = X_t(X.X_t)^-1 donde resuelvo V.(X.X_t)=X_t aplicando cCholesky a (X.X_t)
-    elif  r == n and n<p:
-
+    elif  r == p and n<p:
+        A = multiplicar_matrices(X,X_t)
+        L = calculaCholesky(A)
+        L_t = traspuesta(L)
+    #-- Resolvemos L.y= X_t con L_t.V_t= y (y matriz de L_t.shape[0] y V_t.shape[1])
+        V = matriz_ceros(n,n) #revisar dimensiones
+        for i in range(n):
+            y = res_tri(L,X_t[i],inferior=True) # Uso las filas de X_t pues son las columnas de X
+            x = res_tri(L_t,traspuesta(y),inferior=False)
+            V[:,i] = x # Asigno a x como columna_i de V
+        # Esta V es V_t pues (V.(X.X_t)=X_t)_t -> (X.X_t)V_t = X
+        W = multiplicar_matrices(Y,traspuesta(V))
     #-- Caso c) rango(X) = p ^ n=p -> X_ = (X)^-1 donde despejo W de WX=Y
     elif r == n and n == p:
-    
-    return None
+        L_t = traspuesta(L)
+        W = matriz_ceros(n,n) #revisar dimensiones
+        for i in range(n):
+        #-- Para despejar W usamos X=L.L_t -> W.L.L_t = Y -> (W.L.L_t)_t = Y_t -> L.L_t.W_t = Y_t de donde tomamos L_t.W_t = y ^ L.y = Y_t
+            y = res_tri(L,Y[i],inferior=True) # Uso las filas de Y pues son las columnas de Y_t
+            x = res_tri(L_t,traspuesta(y),inferior=False)
+            W[:,i] = x # Asigno a x como columna_i de W
+        #-- Hasta aca obtuve W_t, traspongo para tener la W
+        W = traspuesta(W)
+    return W
+
+carpeta='cats_and_dogs/'
+X_t, y_t,X_v, y_v = cargarDatos(carpeta)
+
+W = pinvEcuacionesNormales(X_t,[],y_t)
+print(W)
