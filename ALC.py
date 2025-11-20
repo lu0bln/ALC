@@ -1,14 +1,15 @@
 import numpy as np
-
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    from tqdm import tqdm
+    
 #%% -----------LABO 00 ---------- LIBRERIAS
-def matriz_ceros(filas, cols): # <--- CAMBIO: Aceptar filas y cols
-    res = []
-    for _ in range(filas):
-        vec_zeros = []
-        for _ in range(cols):
-            vec_zeros.append(0.0) # <-- CAMBIO: Usar 0.0 (float)
-        res.append(vec_zeros)
-    return np.array(res)
+def matriz_ceros(f, c=None):
+    if c is None:
+        c = 1
+    res = [[0.0] * c for _ in range(f)]
+    return np.array(res, dtype=float)
 
 def matriz_identidad(n:int):
     res = [[0]*n for _ in range(n)]
@@ -16,40 +17,75 @@ def matriz_identidad(n:int):
         res[i][i]= 1.0
     return np.array(res)
 
-def filas(matriz) -> int:
-    if (np.array(matriz).size == 0):
-        return 0
-    else:
-        return np.array(matriz).size//columnas(matriz)
+def multiplicar_matrices(A, B): 
+    '''
+    Caso VECTOR x VECTOR --> MATRIZ
+    (n,) x (m,) --> (n,m)
+    '''
+    if A.ndim == 1 and B.ndim == 1:
+        p = len(A)
+        p2 = len(B)
+        C = matriz_ceros(p,p2)
+        for i in range(p):
+            C[i,:] = A[i] * B
+        return C
+    
+    '''
+    Caso VECTOR x MATRIZ --> VECTOR
+    (n,) x (n,m) --> (m,)
+    ''' 
+    if A.ndim == 1:
+        p = B.shape[1]
+        if B.shape[0] != len(A):
+            return None
+        C = matriz_ceros(p)
+        for i in range(p):
+            C[i] = np.sum(A * B[:,i])
+        return C
+    
+    '''
+    Caso MATRIZ x VECTOR --> VECTOR
+    (n,m) x (m,) --> (n,)
+    '''
+    if B.ndim == 1:
+        n, m = A.shape
+        if m != len(B):
+            return None
+        C = matriz_ceros(n)
+        for i in range(n):
+            C[i] = np.sum(A[i,:] * B)
+        return C
+    '''
+    Caso MATRIZ x MATRIZ --> MATRIZ
+    (n,m) x (m,p) --> (n,p)
+    '''
+    n, p = A.shape
+    p2, m = B.shape
+    
+    C = matriz_ceros(n,m)
 
-def columnas(matriz) ->int:
-    if (np.array(matriz).size == 0):
-        return 0
-    else:
-        return np.array(matriz[0]).size
+    if p != p2:
+        return None
 
-def multiplicar_matrices(A,B):
-    C = matriz_ceros(filas(A),columnas(B))
-    for i in range(0,filas(A)):
-        for j in range(0,columnas(B)):
-            n = 0
-            for k in range(0,filas(B)):
-                n += A[i][k]*B[k][j]
-            C[i][j] = n
-    return np.array(C)
+    for j in range(m):
+        colB = B[:,j]
+        for i in range(n):
+            C[i,j] = np.sum(A[i] * colB)     
+
+    return C
 
 def producto_escalar(A, B):
-    if(len(A) != len(B)):
-        return None
-    res = 0
-    for i in range(len(A)):
-        res = res + (A[i] * B[i])
+    A = np.array(A)
+    B = np.array(B)
 
-    return res
+    if A.size != B.size:
+        return None
+
+    return float(np.sum(A * B))
 
 def esCuadrada(matriz):
     res = False
-    if (filas(matriz) == columnas(matriz) and matriz.size !=0):
+    if (matriz.shape[0] == matriz.shape[1] and matriz.size !=0):
         res = True
     return res
 
@@ -84,44 +120,67 @@ def triangInf(matriz):
     return np.array(L)
 
 def diagonal(matriz):
-    f = filas(matriz)
-    c = columnas(matriz)
+    f = matriz.shape[0]
+    c = matriz.shape[1]
     if (c < 2 and f > 1):
         return matriz
-    D = []
+    r = min(f,c)
+    D = matriz_ceros(f,c)
     #Copio la matriz original a U
-    for i in range(0,f):
-        D.append(matriz[i].copy()) 
-    for i in range(0,f):
-        for j in range(0,c):
-            if (i != j):
-                D[i][j] = 0
+    for i in range(0,r):
+        D[i][i] = matriz[i][i]
     return np.array(D)
 
 def traza(matriz):
     traza = 0
     i = 0
-    while i < min(filas(matriz),columnas(matriz)):
+    while i < min(matriz.shape[0],matriz.shape[1]):
         traza += matriz[i][i]
         i += 1
     return traza
 
 def traspuesta(matriz):
     matriz = np.array(matriz)
+    #Caso si entra vector fila
+    if len(matriz.shape) == 1:
+        T = matriz_ceros(matriz.shape[0], 1)
+        for i in range(matriz.shape[0]):
+            T[i][0] = matriz[i]
+        return T
     T = matriz_ceros(matriz.shape[1],matriz.shape[0])
     for i in range(0,matriz.shape[0]):
         for j in range(0,matriz.shape[1]):
                 T[j][i] = matriz[i][j]
     return np.array(T)
+#-- Funcion traspuesta optimizada, utilizada para el tp
+def traspuesta_(matriz):    
+    M = np.array(matriz, dtype=float)
 
+    # caso escalar → no hay traspuesta
+    if M.ndim == 0:
+        return M
+
+    # caso vector 1D → convertir a vector fila
+    if M.ndim == 1:
+        M = M.reshape(1, -1)
+
+    filas, columnas = M.shape
+    T = matriz_ceros(columnas, filas)
+
+    for i in range(filas):
+        for j in range(columnas):
+            T[j][i] = M[i][j]
+
+    return T
+#--
 def esSimetrica(matriz,atol=1e-8):
     res = True
-    A_t = traspuesta(matriz)
+    A_t = traspuesta_(matriz)
     if (not esCuadrada(matriz)):
         res = False
     else:
-        for i in range(0,filas(matriz)):
-            for j in range(0,columnas(matriz)):
+        for i in range(0,matriz.shape[0]):
+            for j in range(0,matriz.shape[1]):
                 #Sin tol -> if(A_t[i][j] != matriz[i][j]):
                 if(abs(A_t[i][j]-matriz[i][j])>atol):
                     res = False
@@ -131,9 +190,9 @@ def calcularAx(matriz,vector):
     B = []
     if vector.shape[0] == 1:
         vector = traspuesta(vector)
-    for i in range(0,filas(matriz)):
+    for i in range(0,matriz.shape[0]):
         v_n = 0
-        for j in range(0,columnas(matriz)):
+        for j in range(0,matriz.shape[1]):
             v_n += matriz[i][j]*vector[j]
         B.append([v_n])
     return np.array(B)
@@ -145,16 +204,16 @@ def intercambiarFilas(matriz, i, j):
     return matriz
 
 def sumar_fila_multiplo(matriz, i, j, escalar):
-    for c in range(0,columnas(matriz)):
+    for c in range(0,matriz.shape[1]):
         matriz[i][c] = matriz[i][c] + matriz[j][c]*escalar
     return matriz
 
 def esDiagonalmenteDominante(matriz):
     res = True
-    for i in range(0,filas(matriz)):
+    for i in range(0,matriz.shape[0]):
         elemento_d = abs(matriz[i][i])
         suma_fila_i = -(elemento_d)
-        for j in range(0,columnas(matriz)):
+        for j in range(0,matriz.shape[1]):
             suma_fila_i += abs(matriz[i][j])
         if (elemento_d < suma_fila_i):
             res = False
@@ -171,10 +230,10 @@ def matrizCirculante(vector):
 
 def matrizVandermonde(vector):
     V = []
-    for i in range (0,filas(vector)):
+    for i in range (0,vector.shape[0]):
         elem_v = vector[i][0]
         V.append([elem_v ** 0])
-        for j in range(1,filas(vector)):
+        for j in range(1,vector.shape[0]):
             V[i].append(elem_v ** j)
     return np.array(V)
 
@@ -365,28 +424,67 @@ def esTriangSup(L):
     for i in range(0,L.shape[0]):
         for j in range(0,L.shape[1]):
             if (i > j and L[i][j] != 0):
-                res = False
+                return False
     return res
 
-def res_tri(L,b,inferior = True):
-    n = L.shape[0]
-    x = matriz_ceros(n,1)
-    if esTriangSup(L):  # Por los tests, si me dan inferior = False no basta, tengo que verificar si es o no triangSup pues cambia todo
-        for i in range(n-1,-1,-1):
-            x_i = b[i]
-            for j in range(i+1,n):  #Cambie los indices pues no depende del tamano de x, es mejor asi
-                x_i -= L[i,j]*x[j]
-            x[i] = (x_i*1/L[i,i])
-        return traspuesta(x)
-    if inferior == False:   # Por los test, si me dan inferior = False pero es triangInf -> lo resuelvo normal,
-        L = traspuesta(L)
-    for i in range(0,n):
-        x_i = b[i]
-        for j in range(i):      #Cambie los indices pues no depende del tamano de x, es mejor asi
-            x_i -= L[i,j]*x[j]
-        x[i] = (x_i*1/L[i,i])
-    return traspuesta(x)
+'Resuelve T x = b donde T es triangular inferior o superior. b es un vector fila. Devuelve un vector fila'
+def res_tri(T, b, inferior=True):
 
+    #-- b a vector columna
+    b = np.array(b, dtype=float)
+
+    #-- Si b es vector fila (1,n), pasarlo a (n,1)
+    if b.ndim == 2 and b.shape[0] == 1:
+        b = b.T
+    # Si es vector 1D (n,), pasarlo a (n,1)
+    if b.ndim == 1:
+        b = b.reshape(-1, 1)
+
+    n = T.shape[0]
+    x = matriz_ceros(n, 1)
+
+    if inferior:
+        # L x = b
+        for i in range(n):
+            suma = b[i,0]
+            for j in range(i):
+                suma -= T[i,j] * x[j,0]
+            x[i,0] = suma / T[i,i]
+
+    else:
+        # U x = b
+        for i in range(n-1, -1, -1):
+            suma = b[i,0]
+            for j in range(i+1, n):
+                suma -= T[i,j] * x[j,0]
+            x[i,0] = suma / T[i,i]
+
+    # Devuelvo vector fila
+    return traspuesta_(x)
+
+#-- Funcion res_triangular optimizada, para usar en el tp
+def res_triangular(L, b, inferior=True):
+    n = L.shape[0]
+    x = matriz_ceros(n)
+
+    if not inferior:
+        for i in range(n-1, -1, -1):
+            s = b[i]
+            row = L[i]
+            for j in range(i+1, n):
+                s -= row[j] * x[j]
+            x[i] = s / row[i]
+        return x
+
+    for i in range(n):
+        s = b[i]
+        row = L[i]
+        for j in range(i):
+            s -= row[j] * x[j]
+        x[i] = s / row[i]
+
+    return x
+#---------------------------------------------------------------
 def inversa(A):
     L, U, nops = calculaLU(A)
     n = A.shape[0] 
@@ -408,8 +506,8 @@ def inversa(A):
 def calculaLDV(A):
     L,U,nops = calculaLU(A)
 # Sabemos que A = LDV con L triang inf,D diagonal, V triang sup -> V_t.D = U_t
-    V,D,cops = calculaLU(traspuesta(U))
-    return L,D,traspuesta(V)
+    V,D,cops = calculaLU(traspuesta_(U))
+    return L,D,traspuesta_(V)
 
 def esSDP(A, atol=1e-8):
     if not esSimetrica(A,atol):
@@ -423,104 +521,78 @@ def esSDP(A, atol=1e-8):
     return res
 
 #%%------------LABO 05---------- A=QR
+def norma_(x,p):
+    x = np.array(x)
+    res = 0
+    if p == 'inf':
+        return np.max(np.abs(x))
+    res = np.sum(np.abs(x)**p)**(1/p)
+    return res
 
-def QR_con_GS(A, tol=1e-12):
-    if(A.shape[0] != A.shape[1]):
-        return None
-    
-    cant_ops = 0
+def QR_con_GS(A, tol=1e-12, bar=True):
+    A = np.array(A).astype(float)
     Q = matriz_ceros(A.shape[0],A.shape[1]).astype(float)
     q = matriz_ceros(A.shape[0],A.shape[1]).astype(float)
     R = matriz_ceros(A.shape[1],A.shape[1]).astype(float)
     
-    Q[:,0] = A[:,0]*(1/norma(A[:,0], 2))
-    R[0,0] = norma(A[:,0], 2)
+    Q[:,0] = A[:,0]*(1/norma_(A[:,0], 2))
+    R[0,0] = norma_(A[:,0], 2)
     
-    for j in range(1,A.shape[0]):
+    iterador = tqdm(range(1,A.shape[1]), desc="Resolviendo QR con Gram Schmidt") if bar else range(1,A.shape[1])
+
+    for j in iterador:
         q[:,j] = A[:,j]
         
         for k in range(0,j):
             R[k,j] = producto_escalar(Q[:,k], q[:,j])
             q[:,j] = q[:,j] - R[k,j]*Q[:,k]
         
-        q_norma = norma(q[:,j], 2)
+        q_norma = norma_(q[:,j], 2)
         
         if q_norma < tol:
             R[j,j] = 0.0
-            Q[:,j] = matriz_ceros(A.shape[1])
+            Q[:,j] = 0.0
         else:
             R[j,j] = q_norma
             Q[:,j] = q[:,j] / R[j,j]
-    
-    non_zero = (Q != 0).any(axis = 0)
-    Q = Q[:, non_zero]
-    R = R[0:Q.shape[1], :]
 
     return Q, R
 
-#Primer vector canonico de R^k
-def e_1(k):
-    e = np.zeros(k)
-    e[0] = 1
-    return e
-
-#Creamos H_monio con dos matrices cuadradas (nxn) y (mxm) para formar una matriz (n+m x n+m)
-def crear_H_monio(A, B):
-    if(len(A.shape) == 1):
-        filas_a, col_a = 0, 0
-    else:
-        filas_a, col_a = A.shape
-    
-    if(len(B.shape) == 1):
-        filas_b, col_b = 0, 0
-    else:
-        filas_b, col_b = B.shape
-
-    filas_res = filas_a + filas_b
-    col_res = col_a + col_b
-
-    res = matriz_ceros(filas_res, col_res)
-
-    res[0:filas_a, 0:col_a] = A
-    res[filas_a:filas_res, col_a:col_res] = B
-
-    return np.array(res)
-
-def QR_con_HH(A, tol=1e-12):
-    filas = A.shape[0]
-    col = A.shape[1]
-    
-    if(filas < col):
-        return None
+def QR_con_HH(A, tol=1e-12, bar=True):
+    n,m = A.shape
 
     R = A.copy()
-    Q = matriz_identidad(filas)
+    Q = matriz_identidad(n)
 
-    for k in range(0, col):
-        x = R[k:filas, k]
-        sign = 1 if x[0]>= 0 else -1
-        a = -sign * norma(x, 2)
-        u = x - a * e_1(filas-k)
-        norm_u = norma(u, 2)
-        if(norm_u > tol):
-            u = u / norm_u
-            u = np.array([u])
-            H = matriz_identidad(filas-k) - 2*(multiplicar_matrices(traspuesta(u), u))
-            H_monio = crear_H_monio(matriz_identidad(k), H)
-            R = multiplicar_matrices(H_monio, R)
-            Q = multiplicar_matrices(Q, traspuesta(H_monio))
-    
+    iterador = tqdm(range(min(n, m)), desc="Resolviendo QR con House Holder") if bar else range(min(n, m))
+
+    for k in iterador:
+        x = R[k:, k]
+        sign = 1.0 if x[0]>= 0 else -1.0
+        a = -sign * norma_(x, 2)
+        u = x.copy()
+        u[0] -= a 
+        norm_u = norma_(u,2)
+        
+        if norm_u < tol:
+            continue
+        
+        u = u / norm_u
+        R[k:, k:] -= 2.0 * multiplicar_matrices(u, multiplicar_matrices(u, R[k:, k:]))
+        Q[:, k:] -= 2.0 * multiplicar_matrices(multiplicar_matrices(Q[:,k:], u), u)
+
     return Q, R
 
-def calculaQR(A, metodo = 'RH', tol = 1e-12):
+def calculaQR(A, metodo = 'RH', tol = 1e-12, bar=True):
     metodos = ['RH', 'GS']
     if(metodo not in metodos):
         return None
     
     if(metodo == 'RH'):
-        return QR_con_HH(A, tol)
+        return QR_con_HH(A, tol, bar)
     
-    return QR_con_GS(A, tol)
+    if(metodo == 'GS'):
+        return QR_con_GS(A, tol, bar)
 
 #%%------------LABO 06---------- Autovalores
 
@@ -535,15 +607,15 @@ def multiplicar(x,v):
     
     return res
 
-def f(A,v):
-    w = multiplicar_matrices(A,v)
-    norma_w = np.sqrt(multiplicar(w,w))
-    if norma_w!=0:
-        return w/norma_w
-    return matriz_ceros(A.shape[0],1)
+def f(A, v):
+    w = multiplicar_matrices(A, v)
+    norma_w = np.sqrt(multiplicar(w, w))
+    if norma_w != 0:
+        return w / norma_w
+    return matriz_ceros(A.shape[0], 1)
 
 def metpot2k(A, tol=1e-15, n=1000):
-    vec = np.random.rand(len(A), 1)
+    vec = np.random.rand(A.shape[0], 1)
     w_monio = f(A, f(A, vec))
     e = multiplicar(w_monio, vec)
     k = 0 
@@ -555,54 +627,107 @@ def metpot2k(A, tol=1e-15, n=1000):
         k += 1
         
     Av = multiplicar_matrices(A, w_monio)
-    
-    lam = multiplicar(w_monio, Av) 
-    
+    lam = multiplicar(w_monio, Av)
     return w_monio, lam, k
 
-def diagRH(A,tol = 1e-15,K = 1e5):
-    if esSimetrica(A)== False:
+def diagRH_aux(A, u, k):
+    """Calcula B = (I - k u u.T) A (I - k u u.T) manualmente."""
+    n = A.shape[0]
+    
+    # 1. v = A * u
+    v = matriz_ceros(n, 1)
+    for i in range(n):
+        v[i, 0] = np.sum(A[i, :] * u[:, 0])
+        
+    # 2. w = v - (k/2) * (u.T * v) * u
+    ut_v = multiplicar(u, v)
+    beta = ut_v * (k / 2.0)
+    
+    w = matriz_ceros(n, 1)
+    for i in range(n):
+        w[i, 0] = v[i, 0] - beta * u[i, 0]
+    
+    # 3. B = A - k * (u * w.T + w * u.T)
+    B = matriz_ceros(n, n)
+    for i in range(n):
+        for j in range(n):
+            term = u[i, 0] * w[j, 0] + w[i, 0] * u[j, 0]
+            B[i, j] = A[i, j] - k * term
+    return B
+
+def aplicar_H_a_matriz(M, u, k):
+    """Calcula H * M columna por columna manualmente."""
+    n, m = M.shape
+    res = matriz_ceros(n, m)
+    
+    for j in range(m):
+        col_j = M[:, j] # Vector columna (n,)
+        
+        # dot = u.T * col
+        dot = np.sum(u[:, 0] * col_j)
+        
+        # res = col - k * dot * u
+        factor = k * dot
+        for i in range(n):
+            res[i, j] = col_j[i] - factor * u[i, 0]
+            
+    return res
+def diagRH(A, tol=1e-15, K=1000, k_max="max"):
+    if not esSimetrica(A):
         print("La matriz no es simetrica")
         return None, None
     n = A.shape[0] 
-    v1,lam , _ = metpot2k(A,tol,K)
-    #necesito que sea un vec col
-    e1 = matriz_ceros(n,1)
-    e1 [0][0]= 1
-    u = e1 -v1
-    noma_u = multiplicar(u,u) #estaba alcuadrado
-    k =2/noma_u
-    u_t = traspuesta(u)
-    u_uT = multiplicar_matrices(u,u_t)# este tiene que dar una matriz
-    # H = I -k* u*uT (u*uT es de n x n)
-    H = matriz_identidad(n) - k* u_uT
-    # como H es simetrica H=H.T
-    HA = multiplicar_matrices(H,A)# es un H*A de paso
-    #recordamos que H=H.T
-    B  = multiplicar_matrices(HA,H) # ya es el paso final
-    if n==2:
-        return H,B
-    # ahora ya con todo eso tenmos lsito para la recursion
-    A_monio = []# saco la primera fila y col como en el pddf
-    for fila in B[1:n]:
-        fila_A = []
-        for j in range(1,len(fila)):
-            fila_A.append(fila[j])
-        A_monio.append(fila_A)
-    A_monio =np.array(A_monio)
-    # vamos a la recursion con A monio
-    S_monio,D_monio = diagRH(A_monio,tol,K)
-    #Ahora reconstruyo s y d
-    S_reconstrudio = np.array(matriz_identidad(n))
-    D_reconstrudio = np.array(matriz_ceros(n,n))
-    #recuen ahora me doy cuenta que puedo hacer con los arrayt
-    # puedo usar coma A[1:,1:]   para reducir 
-    D_reconstrudio[0,0] = lam
-    D_reconstrudio[1:,1:] = D_monio
-    S_reconstrudio[1:,1:] = S_monio
-    S_final = multiplicar_matrices(H,S_reconstrudio)
-    D_final = D_reconstrudio
-    return S_final,D_final
+    if n == 1: return np.array([[1.0]]), A 
+
+    # Manejo k_max para SVD truncada
+    if k_max != "max":
+        if k_max <= 0: return matriz_identidad(n), A
+        k_next = k_max - 1
+    else:
+        k_next = "max"
+
+    # 1. MetPot
+    v1, lam, _ = metpot2k(A, tol, min(K, 500))
+
+    # 2. Householder
+    e1 = matriz_ceros(n, 1); e1[0,0] = 1.0
+    u = e1 - v1
+    norma_u2 = multiplicar(u, u)
+    
+    if abs(norma_u2) < 1e-15:
+        k_val = 0.0; B = A.copy()
+    else:
+        k_val = 2.0 / norma_u2
+        B = diagRH_aux(A, u, k_val)
+
+    # 4. Deflación
+    A_monio = B[1:, 1:]
+
+    # 5. Recursión
+    S_monio, D_monio = diagRH(A_monio, tol, K, k_max=k_next)
+
+    # 6. Reconstrucción D
+    D_final = matriz_ceros(n, n)
+    D_final[0, 0] = lam
+    filas_d, cols_d = D_monio.shape
+    for i in range(filas_d):
+        for j in range(cols_d):
+            D_final[i+1, j+1] = D_monio[i, j]
+
+    # 7. Reconstrucción S
+    S_bloque = matriz_ceros(n, n)
+    S_bloque[0, 0] = 1.0
+    filas_s, cols_s = S_monio.shape
+    for i in range(filas_s):
+        for j in range(cols_s):
+            S_bloque[i+1, j+1] = S_monio[i, j]
+            
+    if k_val > 0:
+        S_final = aplicar_H_a_matriz(S_bloque, u, k_val)
+    else:
+        S_final = S_bloque
+
+    return S_final, D_final
 
 #%%------------LABO 07---------- Trancisiones_y_rala
 
@@ -740,8 +865,74 @@ def multiplica_rala_vector(A,v):
             w[i]+= val*v[j]
     return w 
 #%%------------LABO 08---------- SVD
+def svd_reducida(A, k="max", tol=1e-15):
+    print(f"Iniciando SVD reducida de matriz {A.shape}")
+    m_orig, n_orig = A.shape
+    transp = False
+    if m_orig < n_orig:
+        A = traspuesta_(A); transp = True
+    m, n = A.shape
+    
+    # 1. Matriz Covarianza
+    print("  - Calculando AtA")
+    At = traspuesta_(A)
+    AtA = multiplicar_matrices(At, A)
+    
+    k_int = "max"
+    if k != "max" and str(k).upper() != "MAX":
+        k_int = int(k)
+        
+    print(f"  - Diagonalizando ({n}x{n}) con k={k_int}")
+    S_v, D_v = diagRH(AtA, tol, k_max=k_int)
+    
+    # 2. Filtrar
+    autovalores = []
+    for i in range(D_v.shape[0]): autovalores.append(D_v[i,i])
+    
+    indices = []
+    for i in range(len(autovalores)):
+        if abs(autovalores[i]) > tol: indices.append(i)
+        else: break
+    
+    r = len(indices)
+    k_final = r
+    if k_int != "max": k_final = min(k_int, r)
+    
+    if k_final == 0:
+        return matriz_ceros(m_orig, 0), np.array([]), matriz_ceros(n_orig, 0)
+    
+    # 3. Construir
+    hatSig_vec = []
+    for i in range(k_final):
+        hatSig_vec.append(np.sqrt(autovalores[indices[i]]))
+    hatSig = np.array(hatSig_vec)
+    
+    hatV = matriz_ceros(n, k_final)
+    for j in range(k_final):
+        idx = indices[j]
+        for i in range(n): hatV[i, j] = S_v[i, idx]
+    
+    # 4. Construir U
+    print(f"  - Construyendo U (k={k_final})")
+    hatU = matriz_ceros(m, k_final)
+    for j in range(k_final):
+        v_j = matriz_ceros(n, 1)
+        for i in range(n): v_j[i, 0] = hatV[i, j]
+            
+        sigma = hatSig[j]
+        if sigma > tol:
+            u_j = multiplicar_matrices(A, v_j)
+            inv_sig = 1.0 / sigma
+            for i in range(m):
+                hatU[i, j] = u_j[i, 0] * inv_sig
+        
+    if transp: return hatV, hatSig, hatU
+    return hatU, hatSig, hatV
+
 #%%----------TRABAJO PRACTICO------------Funciones------------------------
 
+#%% 1.-- Lectura de datos. 
+'Recibe la carpeta donde estan nuestros embeddings y nos devuelve X_train,Y_train,X_validate,Y_validate'
 def cargarDatos(carpeta):
     dogs_t = carpeta + 'train/dogs/efficientnet_b3_embeddings.npy'
     cats_t = carpeta + 'train/cats/efficientnet_b3_embeddings.npy'
@@ -776,43 +967,121 @@ def cargarDatos(carpeta):
 
     return data_t, Y_t, data_v, Y_v
 
-if __name__ == "__main__":
-    test = np.array([[1,3,1],[5,3,1],[15,9,3]])
-    test2 = matriz_identidad(3)
-    A = np.array([[3,2],[4,1]])
-    
-    path = 'cats_and_dogs/'
+#%% 2.-- Ecuaciones Normales 
 
-#-- 2. Ecuaciones Normales 
-
-def esColumnaNula(x):
-    res = True
-    for elem in x:
-        if abs(elem) > 1e-10:
-            return False
-    return res
-def rango(X):
-    n = 0
-    L,U,ops = calculaLU(X)
-    for j in range(U.shape[1]):
-        columna = U[:,j]
-        if not esColumnaNula(columna):
-            n+=1
-    return n
-
+'La funcion recibe una matriz A, y devuelve la L de la descomposicion de Cholesky / A=L.L_t'
 def calculaCholesky(A):
-    if not esSDP(A,atol=1e-10):
+    A = A.astype(float)
+    print(A)
+    if not esSDP(A,atol=1e15):
         return None
     L_,D_,V_ = calculaLDV(A)
     D = np.sqrt(D_)
-    L = multiplicar_matrices(L_,D)
+    L = L_@D
     return L
 
+'- Algorithm 1: Funcion que recibe X e Y matrices / depende el caso a,b o c el peso W se calcula de distinta manera. Devuelve el peso W'
+def calculo_peso_W(X,Y):
+    n,p = X.shape
+    # El rango va a estar acotado entre min(n,p)
+    rango = min(n,p)
+    X_t = traspuesta_(X)
+    #-- Caso a) rango(X) = p ^ n>p -> X_ = (X_t.X)^-1.X_t donde resuelvo (X_t.X)U=X_t aplicando cCholesky a X_t.X
+    if rango == p and n>p:
+    #-- Para hallar X_ -> resolvemos A.U = X_t aplicando cholesky a A -> L.L_t.U=X_t
+        A = X_t@X
+        L = calculaCholesky(A) # triang inf
+    #-- Resolvemos L.y= X_t con L_t.U= y (y matriz de L_t.shape[0] y U.shape[1]) --> calculamos W
+        W = pinvEcuacionesNormales(X,L,Y)
+        return W
+    #-- Caso b) rango(X) = n ^ n<p -> X_ = X_t(X.X_t)^-1 donde resuelvo V.(X.X_t)=X_t aplicando Cholesky a (X.X_t) 
+    elif  rango == n and n<p:
+        A = X@X_t
+        L = calculaCholesky(A)
+    #-- Resolvemos L.y= X con L_t.V_t= y (y matriz de L_t.shape[0] y V_t.shape[1])
+        W = pinvEcuacionesNormales(X,L,Y)
+        return W
+    #-- Caso c) rango(X) = p ^ n=p -> X_ = (X)^-1 donde despejo W de WX=Y
+    elif rango == n and n == p:
+        #-- Para despejar W tomamos a X = L.L_t 
+        L = calculaCholesky(X)
+        W = pinvEcuacionesNormales(X,L,Y)
+        return W
+    return None
+
+'Funcion pinvEcuacionesNormales() recibe X de entrenamiento, L la matriz de Cholesky (dependiendo el caso es distinta), e Y'
+def pinvEcuacionesNormales(X,L,Y):
+    n,p = X.shape
+    rango = min(n,p)
+    W = []
+
+    if rango == p and n>p:
+        #-- Resolvemos L.y= X_t con L_t.U= y (y matriz de L_t.shape[0] y U.shape[1]) --> obtenemos la pinv U
+        pinv = calculo_pinv(traspuesta_(X),L)
+        #-- Calculamos W 
+        W = Y@pinv
+    elif rango == n and n<p:
+        #-- Resolvemos L.y= X con L_t.V_t= y (y matriz de L_t.shape[0] y V_t.shape[1])
+        pinv = calculo_pinv(X,L)
+        #-- Calculamos W, como pinv es V_t -> trasponemos para obtener V pseudoinversa  
+        W = Y@traspuesta_(pinv)
+    elif rango == n and n == p:
+        #-- Para despejar W usamos X=L.L_t -> W.L.L_t = Y -> (W.L.L_t)_t = Y_t -> L.L_t.W_t = Y_t de donde tomamos L_t.W_t = y ^ L.y = Y_t
+        W = calculo_pinv(traspuesta_(Y),L)
+        #-- Hasta aca obtuve W_t, traspongo para tener la W
+        W = traspuesta_(W)
+    return W
+
+'Funcion calculo_pinv() recibe X y L de Cholesky previamente calculado para cada caso'
+def calculo_pinv(X,L):
+    # L es triangular inferior (Cholesky)
+    # X es matriz (puede ser X o X_t según el caso)
+
+    L_t = traspuesta_(L)
+    m, n = X.shape
+    pinv = matriz_ceros(L.shape[1], n)
+
+    for i in range(n):
+        # -- Tomo la columna i de X como vector 1D pues res_tri recibe (matriz,vector fila)
+        b = X[:, i].reshape(-1)
+
+        # -- L.Y = b 
+        y = res_tri(L, b, inferior=True)   # y ya es 1D
+
+        # -- L_t.x = y
+        x = res_tri(L_t, y, inferior=False)
+
+        # -- Guardamos pinv
+        pinv[:, i] = x.reshape(-1)
+
+    return pinv
+'''    
+    L_t = traspuesta_(L) #triang sup
+    pinv = matriz_ceros(L.shape[1],X.shape[1])
+
+    for i in range(L.shape[0]):
+            y = res_tri(L,traspuesta_(X[:,i]),inferior=True) # Pongo las columnas de X como filas pues res_tri recibe (matriz,vector fila)
+            x = res_tri(L_t,traspuesta_(y),inferior=False)
+            pinv[:,i] = x # Asigno a x como columna_i de U
+    return pinv 
+'''
+
+
+#-- Pruebas -------------------------------
+carpeta='cats_and_dogs/'
+X_t, y_t,X_v, y_v = cargarDatos(carpeta)
+
+W = calculo_peso_W(X_t,y_t)
+print(W)
+#------------------------------------------
+
+'''
 'La funcion recibe X, la matriz de embeddings, L la matriz de Cholesky, y Y la matriz de targets de entrenamiento. La funcion devuelve W'
 def pinvEcuacionesNormales(X,L,Y):
     n,p = X.shape
     m,q = Y.shape
-    r = p
+    # El rango va a estar acotado entre min(n,p)
+    r = min(n,p)
     X_t = traspuesta(X)
     W = []
     #-- Caso a) rango(X) = p ^ n>p -> X_ = (X_t.X)^-1.X_t donde resuelvo (X_t.X)U=X_t aplicando cCholesky a X_t.X
@@ -824,19 +1093,19 @@ def pinvEcuacionesNormales(X,L,Y):
     #-- Resolvemos L.y= X_t con L_t.U= y (y matriz de L_t.shape[0] y U.shape[1])
         U = matriz_ceros(n,n) #revisar dimensiones
         for i in range(n):
-            y = res_tri(L,X[i],inferior=True) # Uso las filas de X pues son las columnas de X_t
+            y = res_tri(L,traspuesta(X_t[:,i]),inferior=True) # Uso las filas de X pues son las columnas de X_t
             x = res_tri(L_t,traspuesta(y),inferior=False)
             U[:,i] = x # Asigno a x como columna_i de U
         W = multiplicar_matrices(Y,U)
     #-- Caso b) rango(X) = n ^ n<p -> X_ = X_t(X.X_t)^-1 donde resuelvo V.(X.X_t)=X_t aplicando cCholesky a (X.X_t)
-    elif  r == p and n<p:
+    elif  r == n and n<p:
         A = multiplicar_matrices(X,X_t)
         L = calculaCholesky(A)
         L_t = traspuesta(L)
-    #-- Resolvemos L.y= X_t con L_t.V_t= y (y matriz de L_t.shape[0] y V_t.shape[1])
+    #-- Resolvemos L.y= X con L_t.V_t= y (y matriz de L_t.shape[0] y V_t.shape[1])
         V = matriz_ceros(n,n) #revisar dimensiones
         for i in range(n):
-            y = res_tri(L,X_t[i],inferior=True) # Uso las filas de X_t pues son las columnas de X
+            y = res_tri(L,traspuesta(X[:,i]),inferior=True) # Uso las filas de X_t pues son las columnas de X
             x = res_tri(L_t,traspuesta(y),inferior=False)
             V[:,i] = x # Asigno a x como columna_i de V
         # Esta V es V_t pues (V.(X.X_t)=X_t)_t -> (X.X_t)V_t = X
@@ -853,9 +1122,83 @@ def pinvEcuacionesNormales(X,L,Y):
         #-- Hasta aca obtuve W_t, traspongo para tener la W
         W = traspuesta(W)
     return W
+'''
+#%% 3.-- Descomposicion en valores singulares
 
-carpeta='cats_and_dogs/'
-X_t, y_t,X_v, y_v = cargarDatos(carpeta)
+def pinvSVD(U, S, V, Y):
+    """W = Y * V * S_inv * U.T"""
+    # 1. Y * V
+    print("  - Paso 1: Y @ V")
+    YV = multiplicar_matrices(Y, V)
+    if YV is None: return None
+    m, k = YV.shape
+    
+    # 2. Escalar
+    print("  - Paso 2: Escalar Sigma")
+    YV_scaled = matriz_ceros(m, k)
+    for j in range(k):
+        val_s = S[j]
+        inv = 1.0/val_s if abs(val_s)>1e-15 else 0.0
+        for i in range(m):
+            YV_scaled[i, j] = YV[i, j] * inv
+            
+    # 3. Por U.T
+    print("  - Paso 3: Resultado @ U.T")
+    Ut = traspuesta_(U)
+    W = multiplicar_matrices(YV_scaled, Ut)
+    return W
+#%% 4.-- Descomposicion QR
+def pinvHouseHolder(Q, R, Y, bar=True):
+    return pinvQR(Q, R, Y, metodo='House Holder', bar=bar)
 
-W = pinvEcuacionesNormales(X_t,[],y_t)
-print(W)
+def pinvGramSchmidt(Q, R, Y, bar=True):
+    return pinvQR(Q, R, Y, metodo='Gram Schmidt', bar=bar)
+
+def pinvQR(Q, R, Y, metodo, bar=True):
+    n, m = R.shape
+    r = min(n, m)
+    Rr = R[:r, :r] #Tomo las filas y columnas que estan trianguladas
+    Qr = Q[:, :r] #Tomo las columnas necesarias para dimensiones
+    
+    Rrt = traspuesta_(Rr)
+    Qrt = traspuesta_(Qr)
+
+    Vt = matriz_ceros(r, Qr.shape[0])
+
+    iterador = tqdm(range(Qrt.shape[1]), desc=f"Resolviendo pinvQR, metodo: {metodo}") if bar else range(Qrt.shape[1])
+
+    for i in iterador:
+        Vt[:,i] = res_triangular(Rrt, Qrt[:, i], inferior=True)
+    
+    V = traspuesta_(Vt)
+
+    return multiplicar_matrices(Y, V) #Retorno el W con los pesos
+#%% 5.-- Pseudo-Inversa de Moore-Penrose
+'Recibe dos ma-trices y devuelva True si verifican las condiciones de Moore-Penrose'
+def esPseudoInversa(X,pX,tol=1e-8):
+    res = False
+    if condiciones_MP(X,pX,tol,1) and condiciones_MP(X,pX,tol,2) and condiciones_MP(X,pX,tol,3) and condiciones_MP(X,pX,tol,4):
+        res = True
+    return res
+
+def condiciones_MP(X,pX,tol,condicion):
+    res = False
+    if condicion == 1:
+        A = multiplicar_matrices(pX,X)
+        Y = multiplicar_matrices(X,A)
+        if matricesIguales(Y,X):
+            res = True
+    if condicion == 2:
+        A = multiplicar_matrices(X,pX)
+        Y = multiplicar_matrices(pX,A)
+        if matricesIguales(Y,pX):
+            res = True
+    if condicion == 3:
+        A = multiplicar_matrices(X,pX)
+        if matricesIguales(A,traspuesta_(A)):
+            res = True
+    if condicion == 4:
+        A = multiplicar_matrices(pX,X)
+        if matricesIguales(A,traspuesta_(A)):
+            res = True
+    return res
