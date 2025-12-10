@@ -281,7 +281,7 @@ def escala(s):
     return res 
 
 def rota_y_escala(theta,s):
-    return multiplicar_matrices(rota(theta),escala(s))
+    return multiplicar_matrices(escala(s),rota(theta))
 
 def afin(theta,s,b):
     matriz_afin = matriz_identidad(3) # matriz identidad
@@ -1162,3 +1162,4 @@ def matriz_confusion(W, X_v, Y_v):
 
 
 #--------------'----------------------------
+
