@@ -1,4 +1,7 @@
+#%% importamos biblios necesarias
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 try:
     from tqdm.auto import tqdm
 except ImportError:
@@ -29,7 +32,7 @@ def multiplicar_matrices(A, B):
         for i in range(p):
             C[i,:] = A[i] * B
         return C
-    
+
     '''
     Caso VECTOR x MATRIZ --> VECTOR
     (n,) x (n,m) --> (m,)
@@ -42,7 +45,7 @@ def multiplicar_matrices(A, B):
         for i in range(p):
             C[i] = np.sum(A * B[:,i])
         return C
-    
+
     '''
     Caso MATRIZ x VECTOR --> VECTOR
     (n,m) x (m,) --> (n,)
@@ -61,7 +64,7 @@ def multiplicar_matrices(A, B):
     '''
     n, p = A.shape
     p2, m = B.shape
-    
+
     C = matriz_ceros(n,m)
 
     if p != p2:
@@ -70,7 +73,7 @@ def multiplicar_matrices(A, B):
     for j in range(m):
         colB = B[:,j]
         for i in range(n):
-            C[i,j] = np.sum(A[i] * colB)     
+            C[i,j] = np.sum(A[i] * colB)
 
     return C
 
@@ -156,11 +159,11 @@ def traspuesta(matriz):
 def traspuesta_(matriz):    
     M = np.array(matriz, dtype=float)
 
-    # caso escalar → no hay traspuesta
+    # caso escalar -> no hay traspuesta
     if M.ndim == 0:
         return M
 
-    # caso vector 1D → convertir a vector fila
+    # caso vector 1D -> convertir a vector fila
     if M.ndim == 1:
         M = M.reshape(1, -1)
 
@@ -444,7 +447,7 @@ def res_tri(T, b, inferior=True):
     x = matriz_ceros(n, 1)
 
     if inferior:
-        # L x = b
+        # Lx = b
         for i in range(n):
             suma = b[i,0]
             for j in range(i):
@@ -452,14 +455,14 @@ def res_tri(T, b, inferior=True):
             x[i,0] = suma / T[i,i]
 
     else:
-        # U x = b
+        # Ux = b
         for i in range(n-1, -1, -1):
             suma = b[i,0]
             for j in range(i+1, n):
                 suma -= T[i,j] * x[j,0]
             x[i,0] = suma / T[i,i]
 
-    # Devuelvo vector fila
+    #-- Devuelvo vector fila
     return traspuesta_(x)
 
 #-- Funcion res_triangular optimizada, para usar en el tp
@@ -594,7 +597,7 @@ def calculaQR(A, metodo = 'RH', tol = 1e-12, bar=True):
     if(metodo == 'GS'):
         return QR_con_GS(A, tol, bar)
 
-#%%------------LABO 06---------- Autovalores
+#%%------------LABO 06---------- Diagonalizacion
 
 def multiplicar(x,v):
     x= np.array(x)
@@ -972,7 +975,6 @@ def cargarDatos(carpeta):
 'La funcion recibe una matriz A, y devuelve la L de la descomposicion de Cholesky / A=L.L_t'
 def calculaCholesky(A):
     A = A.astype(float)
-    print(A)
     if not esSDP(A,atol=1e15):
         return None
     L_,D_,V_ = calculaLDV(A)
@@ -1003,9 +1005,8 @@ def calculo_peso_W(X,Y):
         return W
     #-- Caso c) rango(X) = p ^ n=p -> X_ = (X)^-1 donde despejo W de WX=Y
     elif rango == n and n == p:
-        #-- Para despejar W tomamos a X = L.L_t 
-        L = calculaCholesky(X)
-        W = pinvEcuacionesNormales(X,L,Y)
+        #-- Para despejar W multiplicamos la inversa de X por Y -> W = Y.X_(-1) 
+        W = pinvEcuacionesNormales(X,None,Y)
         return W
     return None
 
@@ -1026,10 +1027,9 @@ def pinvEcuacionesNormales(X,L,Y):
         #-- Calculamos W, como pinv es V_t -> trasponemos para obtener V pseudoinversa  
         W = Y@traspuesta_(pinv)
     elif rango == n and n == p:
-        #-- Para despejar W usamos X=L.L_t -> W.L.L_t = Y -> (W.L.L_t)_t = Y_t -> L.L_t.W_t = Y_t de donde tomamos L_t.W_t = y ^ L.y = Y_t
-        W = calculo_pinv(traspuesta_(Y),L)
-        #-- Hasta aca obtuve W_t, traspongo para tener la W
-        W = traspuesta_(W)
+        #-- Para despejar W multiplicamos la inversa de X por Y -> W = Y.X_(-1)
+        X_inv = inversa(X)      
+        W = Y@X_inv
     return W
 
 'Funcion calculo_pinv() recibe X y L de Cholesky previamente calculado para cada caso'
@@ -1045,7 +1045,7 @@ def calculo_pinv(X,L):
         # -- Tomo la columna i de X como vector 1D pues res_tri recibe (matriz,vector fila)
         b = X[:, i].reshape(-1)
 
-        # -- L.Y = b 
+        # -- L.y = b 
         y = res_tri(L, b, inferior=True)   # y ya es 1D
 
         # -- L_t.x = y
@@ -1055,74 +1055,7 @@ def calculo_pinv(X,L):
         pinv[:, i] = x.reshape(-1)
 
     return pinv
-'''    
-    L_t = traspuesta_(L) #triang sup
-    pinv = matriz_ceros(L.shape[1],X.shape[1])
 
-    for i in range(L.shape[0]):
-            y = res_tri(L,traspuesta_(X[:,i]),inferior=True) # Pongo las columnas de X como filas pues res_tri recibe (matriz,vector fila)
-            x = res_tri(L_t,traspuesta_(y),inferior=False)
-            pinv[:,i] = x # Asigno a x como columna_i de U
-    return pinv 
-'''
-
-
-#-- Pruebas -------------------------------
-carpeta='cats_and_dogs/'
-X_t, y_t,X_v, y_v = cargarDatos(carpeta)
-
-W = calculo_peso_W(X_t,y_t)
-print(W)
-#------------------------------------------
-
-'''
-'La funcion recibe X, la matriz de embeddings, L la matriz de Cholesky, y Y la matriz de targets de entrenamiento. La funcion devuelve W'
-def pinvEcuacionesNormales(X,L,Y):
-    n,p = X.shape
-    m,q = Y.shape
-    # El rango va a estar acotado entre min(n,p)
-    r = min(n,p)
-    X_t = traspuesta(X)
-    W = []
-    #-- Caso a) rango(X) = p ^ n>p -> X_ = (X_t.X)^-1.X_t donde resuelvo (X_t.X)U=X_t aplicando cCholesky a X_t.X
-    if r == p and n>p:
-    #-- Para hallar X_ -> resolvemos A.U = X_t aplicando cholesky a A -> L.L_t.U=X_t
-        A = multiplicar_matrices(X_t,X)
-        L = calculaCholesky(A) # triang inf
-        L_t = traspuesta(L) # triang sup
-    #-- Resolvemos L.y= X_t con L_t.U= y (y matriz de L_t.shape[0] y U.shape[1])
-        U = matriz_ceros(n,n) #revisar dimensiones
-        for i in range(n):
-            y = res_tri(L,traspuesta(X_t[:,i]),inferior=True) # Uso las filas de X pues son las columnas de X_t
-            x = res_tri(L_t,traspuesta(y),inferior=False)
-            U[:,i] = x # Asigno a x como columna_i de U
-        W = multiplicar_matrices(Y,U)
-    #-- Caso b) rango(X) = n ^ n<p -> X_ = X_t(X.X_t)^-1 donde resuelvo V.(X.X_t)=X_t aplicando cCholesky a (X.X_t)
-    elif  r == n and n<p:
-        A = multiplicar_matrices(X,X_t)
-        L = calculaCholesky(A)
-        L_t = traspuesta(L)
-    #-- Resolvemos L.y= X con L_t.V_t= y (y matriz de L_t.shape[0] y V_t.shape[1])
-        V = matriz_ceros(n,n) #revisar dimensiones
-        for i in range(n):
-            y = res_tri(L,traspuesta(X[:,i]),inferior=True) # Uso las filas de X_t pues son las columnas de X
-            x = res_tri(L_t,traspuesta(y),inferior=False)
-            V[:,i] = x # Asigno a x como columna_i de V
-        # Esta V es V_t pues (V.(X.X_t)=X_t)_t -> (X.X_t)V_t = X
-        W = multiplicar_matrices(Y,traspuesta(V))
-    #-- Caso c) rango(X) = p ^ n=p -> X_ = (X)^-1 donde despejo W de WX=Y
-    elif r == n and n == p:
-        L_t = traspuesta(L)
-        W = matriz_ceros(n,n) #revisar dimensiones
-        for i in range(n):
-        #-- Para despejar W usamos X=L.L_t -> W.L.L_t = Y -> (W.L.L_t)_t = Y_t -> L.L_t.W_t = Y_t de donde tomamos L_t.W_t = y ^ L.y = Y_t
-            y = res_tri(L,Y[i],inferior=True) # Uso las filas de Y pues son las columnas de Y_t
-            x = res_tri(L_t,traspuesta(y),inferior=False)
-            W[:,i] = x # Asigno a x como columna_i de W
-        #-- Hasta aca obtuve W_t, traspongo para tener la W
-        W = traspuesta(W)
-    return W
-'''
 #%% 3.-- Descomposicion en valores singulares
 
 def pinvSVD(U, S, V, Y):
@@ -1168,7 +1101,7 @@ def pinvQR(Q, R, Y, metodo, bar=True):
     iterador = tqdm(range(Qrt.shape[1]), desc=f"Resolviendo pinvQR, metodo: {metodo}") if bar else range(Qrt.shape[1])
 
     for i in iterador:
-        Vt[:,i] = res_triangular(Rrt, Qrt[:, i], inferior=True)
+        Vt[:,i] = res_tri(Rrt, Qrt[:, i], inferior=True)
     
     V = traspuesta_(Vt)
 
@@ -1202,3 +1135,30 @@ def condiciones_MP(X,pX,tol,condicion):
         if matricesIguales(A,traspuesta_(A)):
             res = True
     return res
+
+#%% -- Matriz de confusion -------------------------------
+
+def matriz_confusion(W, X_v, Y_v):
+    Y_pred = multiplicar_matrices(W, X_v)
+    n = Y_pred.shape[1]
+    tp = 0; tn = 0; fp = 0; fn = 0
+
+    for i in range(n):
+        # Prediccion
+        p = 0 if Y_pred[0, i] > Y_pred[1, i] else 1
+        # Realidad
+        r = 0 if Y_v[0, i] == 1 else 1
+
+        if r == 0 and p == 0: tp += 1
+        elif r == 1 and p == 1: tn += 1
+        elif r == 0 and p == 1: fp += 1
+        elif r == 1 and p == 0: fn += 1
+
+    print(f"\nMatriz de Confusión:\n      | Pred G | Pred P")
+    print(f"Real G| {tp:6d} | {fp:6d}")
+    print(f"Real P| {fn:6d} | {tn:6d}")
+    print(f"Accuracy: {(tp+tn)/n:.2%}")
+    return [[tp, fp], [fn, tn]]
+
+
+#--------------'----------------------------
