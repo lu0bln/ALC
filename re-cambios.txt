@@ -1,0 +1,16 @@
+-- Cambios realizados en re-alc.py (archivo de funciones) --
++ En la funcion rota_y_escala() se cambio el orden de la linea 284
+  - anterior -> multiplicar_matrices(rota(),escala())
+  - ahora -> multiplicar_matrices(escala(),rota())
+
++ Arreglo de funcion QR_con_HH()
+  - se arreglo la funcion multiplicar_matrices() para poder aceptar y devolver distintos tamanos de matrices (desde linea 23)
+
++ pinvSVD() debe recibir una descomposición SVD completa y operar con los bloques no nulos de la descomposición por bloques del enunciado. Revisar.
+completar--------------
+
++ En pinvEcuacionesNormales() en el caso cuadrado se cambio el parametro que recibe (linea 1009 y 1031) 
+ - antrerior -> se realizaba la descomposicion de Cholesky de X
+ - ahora -> se asume que no hay L y se realiza simplemente la inversa de X para calcular peso W
+
++ Se implementaron los casos QR_con_GS y QR_con_HH
