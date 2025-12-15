@@ -6,8 +6,12 @@
 + Arreglo de funcion QR_con_HH()
   - se arreglo la funcion multiplicar_matrices() para poder aceptar y devolver distintos tamanos de matrices (desde linea 23)
 
-+ pinvSVD() debe recibir una descomposición SVD completa y operar con los bloques no nulos de la descomposición por bloques del enunciado. Revisar.
-completar--------------
++ Arreglo de funcion pinSVD()
+	- anterior -> recibia una svd con k=100 y operaba con multiplicar matrices
+	- ahora :
+		* Se agrego un filtro para K, para operar en una svd completa y despues filtrar
+		* Se multiplica primero Y por V_r para reducir las dimensiones 
+		* Las multiplicaciones se hacen por columnas
 
 + En pinvEcuacionesNormales() en el caso cuadrado se cambio el parametro que recibe (linea 1009 y 1031) 
  - antrerior -> se realizaba la descomposicion de Cholesky de X
