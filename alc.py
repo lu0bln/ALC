@@ -9,8 +9,8 @@ except ImportError:
     
 #%% -----------LABO 00 ---------- LIBRERIAS
 def matriz_ceros(f, c=None):
-    if c is None:
-        c = 1
+    if c == None:
+        return np.array([0.0]*f, dtype=float)
     res = [[0.0] * c for _ in range(f)]
     return np.array(res, dtype=float)
 
@@ -599,131 +599,121 @@ def calculaQR(A, metodo = 'RH', tol = 1e-12, bar=True):
 
 #%%------------LABO 06---------- Diagonalizacion
 
-def multiplicar(x,v):
-    x= np.array(x)
-    v = np.array(v)
-    if len(x)!=len(v):
-        print("Sytaxis error en multiplicar")
-    res = 0
-    for i in range(len(x)):
-        res += x[i][0]*v[i][0]
-    
-    return res
-
-def f(A, v):
-    w = multiplicar_matrices(A, v)
-    norma_w = np.sqrt(multiplicar(w, w))
-    if norma_w != 0:
-        return w / norma_w
-    return matriz_ceros(A.shape[0], 1)
-
+# 1. Optimización de metpot2k: Usamos @ en lugar de bucles y evitamos llamadas excesivas
 def metpot2k(A, tol=1e-15, n=1000):
+    # Generar vector inicial y normalizar
     vec = np.random.rand(A.shape[0], 1)
-    w_monio = f(A, f(A, vec))
-    e = multiplicar(w_monio, vec)
-    k = 0 
+    vec = vec / np.linalg.norm(vec)
     
-    while np.abs(e - 1) > tol and k < n:
+    lam_prev = 0
+    k = 0
+    
+    # Iteración del método de la potencia
+    for k in range(n):
+        # Multiplicación matriz-vector optimizada (A @ vec)
+        w = multiplicar_matrices(A,vec)  
+        
+        # Normalización
+        norma = np.linalg.norm(w)
+        if norma < 1e-15: # Evitar división por cero
+            return vec, 0, k
+        
+        w_monio = w / norma
+        
+        # Calcular autovalor 
+        lam = float(multiplicar_matrices(traspuesta_(w_monio),multiplicar_matrices(A,w_monio)))
+        
+        # Criterio de parada: convergencia del autovalor o del vector
+        if np.abs(lam - lam_prev) < tol:
+            return w_monio, lam, k
+            
         vec = w_monio
-        w_monio = f(A, f(A, vec))
-        e = multiplicar(w_monio, vec)
-        k += 1
-        
-    Av = multiplicar_matrices(A, w_monio)
-    lam = multiplicar(w_monio, Av)
-    return w_monio, lam, k
+        lam_prev = lam
 
+    return vec, lam_prev, n
+
+# 2. Optimización de diagRH_aux: Vectorización completa
 def diagRH_aux(A, u, k):
-    """Calcula B = (I - k u u.T) A (I - k u u.T) manualmente."""
-    n = A.shape[0]
+    """Calcula B = (I - k u u.T) A (I - k u u.T) usando operaciones vectoriales."""
+    # u es shape (n, 1)
     
-    # 1. v = A * u
-    v = matriz_ceros(n, 1)
-    for i in range(n):
-        v[i, 0] = np.sum(A[i, :] * u[:, 0])
-        
-    # 2. w = v - (k/2) * (u.T * v) * u
-    ut_v = multiplicar(u, v)
+    # 1. v = A @ u  (Mucho más rápido que el bucle for)
+    v = multiplicar_matrices(A,u) 
+    
+    # 2. w = v - (k/2) * (u.T @ v) * u
+    ut_v = float(multiplicar_matrices(traspuesta_(u),v))
     beta = ut_v * (k / 2.0)
+    w = v - beta * u
     
-    w = matriz_ceros(n, 1)
-    for i in range(n):
-        w[i, 0] = v[i, 0] - beta * u[i, 0]
+    # 3. B = A - k * (u @ w.T + w @ u.T)
+    # np.outer es el producto externo (u * w.T)
+    term = np.outer(u, w) + np.outer(w, u)
+    B = A - k * term
     
-    # 3. B = A - k * (u * w.T + w * u.T)
-    B = matriz_ceros(n, n)
-    for i in range(n):
-        for j in range(n):
-            term = u[i, 0] * w[j, 0] + w[i, 0] * u[j, 0]
-            B[i, j] = A[i, j] - k * term
     return B
 
+# 3. Optimización de aplicar_H: Algebra matricial en lugar de bucles columna por columna
 def aplicar_H_a_matriz(M, u, k):
-    """Calcula H * M columna por columna manualmente."""
-    n, m = M.shape
-    res = matriz_ceros(n, m)
+    """Calcula H * M de forma vectorizada. H = I - k * u * u.T"""
+    # H * M = (I - k u u^T) M = M - k * u * (u^T * M)
     
-    for j in range(m):
-        col_j = M[:, j] # Vector columna (n,)
-        
-        # dot = u.T * col
-        dot = np.sum(u[:, 0] * col_j)
-        
-        # res = col - k * dot * u
-        factor = k * dot
-        for i in range(n):
-            res[i, j] = col_j[i] - factor * u[i, 0]
-            
-    return res
+    # u.T @ M da un vector fila (1, m)
+    # u @ (u.T @ M) da una matriz (n, m)
+    
+    correction = k * (multiplicar_matrices(u,multiplicar_matrices(traspuesta_(u),M)))
+    return M - correction
+
+# 4. diagRH 2.0
 def diagRH(A, tol=1e-15, K=1000, k_max="max"):
-    if not esSimetrica(A):
+    # Aseguramos que A sea float para evitar errores de redondeo con enteros
+    A = np.array(A, dtype=float)
+    #not np.allclose(A, A.T, atol=1e-8)
+    if not esSimetrica(A,1e-8):
         print("La matriz no es simetrica")
         return None, None
-    n = A.shape[0] 
-    if n == 1: return np.array([[1.0]]), A 
+        
+    n = A.shape[0]
+    if n == 1: 
+        return np.array([[1.0]]), A 
 
-    # Manejo k_max para SVD truncada
     if k_max != "max":
-        if k_max <= 0: return matriz_identidad(n), A
+        if k_max <= 0: return np.eye(n), A
         k_next = k_max - 1
     else:
         k_next = "max"
 
-    # 1. MetPot
+    # ---   PASO 1: METPOT    ---
     v1, lam, _ = metpot2k(A, tol, min(K, 500))
 
-    # 2. Householder
-    e1 = matriz_ceros(n, 1); e1[0,0] = 1.0
+    # --- PASO 2: HOUSEHOLDER ---
+    e1 = np.zeros((n, 1))
+    e1[0, 0] = 1.0
+
     u = e1 - v1
-    norma_u2 = multiplicar(u, u)
+    norma_u2 = float(multiplicar_matrices(traspuesta_(u) , u))
     
     if abs(norma_u2) < 1e-15:
-        k_val = 0.0; B = A.copy()
+        k_val = 0.0
+        B = A.copy()
     else:
         k_val = 2.0 / norma_u2
         B = diagRH_aux(A, u, k_val)
 
-    # 4. Deflación
+    # --- PASO 4: DEFLACIÓN ---
     A_monio = B[1:, 1:]
 
-    # 5. Recursión
+    # --- PASO 5: RECURSIÓN ---
     S_monio, D_monio = diagRH(A_monio, tol, K, k_max=k_next)
 
-    # 6. Reconstrucción D
-    D_final = matriz_ceros(n, n)
+    # --- PASO 6: RECONSTRUCCIÓN D ---
+    D_final = np.zeros((n, n))
     D_final[0, 0] = lam
-    filas_d, cols_d = D_monio.shape
-    for i in range(filas_d):
-        for j in range(cols_d):
-            D_final[i+1, j+1] = D_monio[i, j]
+    D_final[1:, 1:] = D_monio
 
-    # 7. Reconstrucción S
-    S_bloque = matriz_ceros(n, n)
+    # --- PASO 7: RECONSTRUCCIÓN S ---
+    S_bloque = np.zeros((n, n))
     S_bloque[0, 0] = 1.0
-    filas_s, cols_s = S_monio.shape
-    for i in range(filas_s):
-        for j in range(cols_s):
-            S_bloque[i+1, j+1] = S_monio[i, j]
+    S_bloque[1:, 1:] = S_monio
             
     if k_val > 0:
         S_final = aplicar_H_a_matriz(S_bloque, u, k_val)
@@ -955,7 +945,7 @@ def cargarDatos(carpeta):
     for _ in range(1000):
         y.append([0,1])
     
-    Y_t = np.array(y).T
+    Y_t = traspuesta_(np.array(y))
 
     y = []
     for _ in range(500):
@@ -963,7 +953,7 @@ def cargarDatos(carpeta):
     for _ in range(500):
         y.append([0,1])
 
-    Y_v = np.array(y).T
+    Y_v = traspuesta_(np.array(y))
 
     data_t = np.concatenate((cats_t,dogs_t),axis=1)
     data_v = np.concatenate((cats_v,dogs_v),axis=1)
@@ -979,7 +969,7 @@ def calculaCholesky(A):
         return None
     L_,D_,V_ = calculaLDV(A)
     D = np.sqrt(D_)
-    L = L_@D
+    L = multiplicar_matrices(L_,D)
     return L
 
 '- Algorithm 1: Funcion que recibe X e Y matrices / depende el caso a,b o c el peso W se calcula de distinta manera. Devuelve el peso W'
@@ -991,14 +981,14 @@ def calculo_peso_W(X,Y):
     #-- Caso a) rango(X) = p ^ n>p -> X_ = (X_t.X)^-1.X_t donde resuelvo (X_t.X)U=X_t aplicando cCholesky a X_t.X
     if rango == p and n>p:
     #-- Para hallar X_ -> resolvemos A.U = X_t aplicando cholesky a A -> L.L_t.U=X_t
-        A = X_t@X
+        A = multiplicar_matrices(X_t,X)
         L = calculaCholesky(A) # triang inf
     #-- Resolvemos L.y= X_t con L_t.U= y (y matriz de L_t.shape[0] y U.shape[1]) --> calculamos W
         W = pinvEcuacionesNormales(X,L,Y)
         return W
     #-- Caso b) rango(X) = n ^ n<p -> X_ = X_t(X.X_t)^-1 donde resuelvo V.(X.X_t)=X_t aplicando Cholesky a (X.X_t) 
     elif  rango == n and n<p:
-        A = X@X_t
+        A = multiplicar_matrices(X,X_t)
         L = calculaCholesky(A)
     #-- Resolvemos L.y= X con L_t.V_t= y (y matriz de L_t.shape[0] y V_t.shape[1])
         W = pinvEcuacionesNormales(X,L,Y)
@@ -1020,16 +1010,16 @@ def pinvEcuacionesNormales(X,L,Y):
         #-- Resolvemos L.y= X_t con L_t.U= y (y matriz de L_t.shape[0] y U.shape[1]) --> obtenemos la pinv U
         pinv = calculo_pinv(traspuesta_(X),L)
         #-- Calculamos W 
-        W = Y@pinv
+        W = multiplicar_matrices(Y,pinv)
     elif rango == n and n<p:
         #-- Resolvemos L.y= X con L_t.V_t= y (y matriz de L_t.shape[0] y V_t.shape[1])
         pinv = calculo_pinv(X,L)
         #-- Calculamos W, como pinv es V_t -> trasponemos para obtener V pseudoinversa  
-        W = Y@traspuesta_(pinv)
+        W = multiplicar_matrices(Y,traspuesta_(pinv))
     elif rango == n and n == p:
         #-- Para despejar W multiplicamos la inversa de X por Y -> W = Y.X_(-1)
         X_inv = inversa(X)      
-        W = Y@X_inv
+        W = multiplicar_matrices(Y,X_inv)
     return W
 
 'Funcion calculo_pinv() recibe X y L de Cholesky previamente calculado para cada caso'
@@ -1058,28 +1048,76 @@ def calculo_pinv(X,L):
 
 #%% 3.-- Descomposicion en valores singulares
 
-def pinvSVD(U, S, V, Y):
-    """W = Y * V * S_inv * U.T"""
-    # 1. Y * V
-    print("  - Paso 1: Y @ V")
-    YV = multiplicar_matrices(Y, V)
-    if YV is None: return None
-    m, k = YV.shape
+def pinvSVD(U, S, V, Y, tol=1e-15):
+    """
+    Calcula los pesos W utilizando la Descomposición en Valores Singulares (SVD)
+    para la resolución de la pseudo-inversa.
     
-    # 2. Escalar
-    print("  - Paso 2: Escalar Sigma")
-    YV_scaled = matriz_ceros(m, k)
+    Corresponde al Algoritmo 2 del TP.
+    
+    Argumentos:
+        U: Matriz U de la SVD (n x k)
+        S: Vector de valores singulares (k,)
+        V: Matriz V de la SVD (p x k)
+        Y: Matriz de targets de entrenamiento (m x p)
+        
+    Retorna:
+        W: Matriz de pesos calculada (m x n)
+    """
+    # 1. Determinar el rango k (cantidad de valores singulares no nulos)
+    k = 0
+    for val in S:
+        if abs(val) > tol:
+            k += 1
+        else:
+            # S viene ordenado de mayor a menor.
+            # Si encontramos un valor despreciable, terminamos.
+            break
+    print(f"Cantidad de K ={k}  ")
+    if k == 0:
+        # Caso borde: matriz nula
+        return matriz_ceros(Y.shape[0], U.shape[0])
+
+    print(f"  - Calculando pinvSVD con rango k={k}")
+
+    # 2. Extraer bloques no nulos (Block Decomposition)
+    # U_r: Primeras k columnas de U
+    # V_r: Primeras k columnas de V 
+    # S_r: Primeros k valores singulares
+    U_r = U[:, :k] 
+    V_r = V[:, :k]
+    S_r = S[:k]
+    print(Y.shape)
+    print(V_r.shape)
+
+    # 3. Operacion Y * V_r
+    # Optimización: Multiplicamos primero Y por V_r para reducir dimensiones antes
+    print("  - Paso 1: Y @ V_r")
+    YV = multiplicar_matrices(Y, V_r) # (Filas_Y, k)
+    if YV is None: 
+        print(YV)
+        return None
+    
+    m_yv, n_yv = YV.shape
+
+    # 4. Escalar por la inversa de Sigma (S_r^{-1})
+    # Matemáticamente equivale a YV * diag(1/s)
+    print("  - Paso 2: Escalar por Sigma_r inversa")
+    YV_scaled = matriz_ceros(m_yv, n_yv)
     for j in range(k):
-        val_s = S[j]
-        inv = 1.0/val_s if abs(val_s)>1e-15 else 0.0
-        for i in range(m):
+        val_s = S_r[j]
+        inv = 1.0 / val_s 
+        # Multiplicamos la columna j por 1/sigma_j
+        for i in range(m_yv):
             YV_scaled[i, j] = YV[i, j] * inv
-            
-    # 3. Por U.T
-    print("  - Paso 3: Resultado @ U.T")
-    Ut = traspuesta_(U)
-    W = multiplicar_matrices(YV_scaled, Ut)
+
+    # 5. Multiplicar por U_r^T
+    print("  - Paso 3: Resultado @ U_r.T")
+    Ur_t = traspuesta_(U_r)
+    W = multiplicar_matrices(YV_scaled, Ur_t)
+    print("W Obtenido con exito ")
     return W
+
 #%% 4.-- Descomposicion QR
 def pinvHouseHolder(Q, R, Y, bar=True):
     return pinvQR(Q, R, Y, metodo='House Holder', bar=bar)
@@ -1162,4 +1200,3 @@ def matriz_confusion(W, X_v, Y_v):
 
 
 #--------------'----------------------------
-
