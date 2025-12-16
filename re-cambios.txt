@@ -18,3 +18,5 @@
  - ahora -> se asume que no hay L y se realiza simplemente la inversa de X para calcular peso W
 
 + Se implementaron los casos QR_con_GS y QR_con_HH
+
+### AVISO IMPORTANTE DE re-notebook-grupoEspadas.ipynb --> No correr el archivo pues no reconoce re-alc.py (ya se encuentran guardadas en el .ipynb los resultados)
