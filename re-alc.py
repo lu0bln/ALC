@@ -1,5 +1,6 @@
 #%% importamos biblios necesarias
 import numpy as np
+import time as tm
 import seaborn as sns
 import matplotlib.pyplot as plt
 try:
@@ -1200,3 +1201,50 @@ def matriz_confusion(W, X_v, Y_v):
 
 
 #--------------'----------------------------
+#%% Funcion para graficar distintos k valores singulares
+def analizar_svd_k(X_t, Y_t, X_v, Y_v, k_values):
+    print("Calculando SVD Completa una sola vez...")
+    # Calculamos la SVD completa primero
+    U_full, S_full, V_full = svd_reducida(X_t, k="max")
+    
+    accuracies = []
+    times = []
+    
+    print(f"\n{'k':<5} | {'Acc':<10} | {'Tiempo W'}")
+    print("-" * 30)
+    
+    for k in k_values:
+        if k > len(S_full): continue
+        
+        t0 = tm.time()
+        # Recortamos manualmente las matrices U, S, V
+        U_k = U_full[:, :k]
+        S_k = S_full[:k]
+        V_k = V_full[:, :k]
+        
+        # Calculamos W con el subset
+        W_k = pinvSVD(U_k, S_k, V_k, Y_t)
+        dt = tm.time() - t0
+        
+        # Evaluar Accuracy
+        Y_pred = multiplicar_matrices(W_k, X_v)
+        preds = np.argmax(Y_pred, axis=0)
+        reals = np.argmax(Y_v, axis=0)
+        acc = np.mean(preds == reals)
+        
+        accuracies.append(acc)
+        times.append(dt)
+        print(f"{k:<5} | {acc:.4f}     | {dt:.4f}s")
+        
+    # Graficar
+    plt.figure(figsize=(10,6))
+    plt.plot(k_values[:len(accuracies)], accuracies, 'o-', color='purple')
+    plt.xlabel('Número de Valores Singulares (k)')
+    plt.ylabel('Accuracy en Validación')
+    plt.title('Performance vs Compresión (SVD)')
+    plt.grid(True)
+    #plt.show()
+
+# Lista de k a probar 
+lista_k = [1, 5, 10, 20, 50, 100, 200, 500, 1000, 1500]
+#analizar_svd_k(data_t, Y_t, data_v, Y_v, lista_k)
